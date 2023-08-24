@@ -20,6 +20,7 @@ You can download it at https://github.com/Arcaea-Infinity/ArcaeaSongDatabase"
 
     if fs::metadata("/data/data/moe.low.arc/files/st3").is_ok() {
         data_path = "/data/data/moe.low.arc/files/st3";
+        println!("Using arcaea's data");
     } else {
         if !fs::metadata("score.db").is_ok() {
             panic!(
