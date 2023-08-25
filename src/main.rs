@@ -25,7 +25,7 @@ You can download it at https://github.com/Arcaea-Infinity/ArcaeaSongDatabase"
         if !fs::metadata("score.db").is_ok() {
             panic!(
                 "Score database ( called `score.db` ) do not exist! 
-You have to copy it at /data/data/moe.low.arc/files/st3 ( and you will need your device be rooted).
+You have to copy it at /data/data/moe.low.arc/files/st3 ( and you will need your device rooted).
 And rename to `score.db`."
             )
         }
@@ -45,7 +45,7 @@ And rename to `score.db`."
         if let Some(v) = &b.info {
             ptt_b = (v.rating as f64 + b.ptt_offset) * 0.1;
         }
-        ptt_b.partial_cmp(&ptt_a).unwrap()
+        ptt_b.partial_cmp(&ptt_a).unwrap() // Greater first
     });
 
     let mut ptt: f64 = 0.0;
