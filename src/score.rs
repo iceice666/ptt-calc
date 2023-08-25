@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use anyhow::Result as anyResult;
 
+use crate::ptt::get_ptts;
+
 #[derive(Debug)]
 pub struct Score {
     // Just score
@@ -21,7 +23,9 @@ pub struct Score {
     // remains health on clear
     pub health: i8, // ~ 100, negative value unknown right now
     //calculated ptt
-    pub ptt_offset: f64,
+    pub ptt: f64,
+    // song's ptt
+    pub song_ptt: u8,
     // song's info
     pub info: Option<Song>,
 }
@@ -33,27 +37,38 @@ pub fn get_score(path: &str) -> anyResult<Vec<Score>> {
 
     let mut statement = connection.prepare("SELECT * FROM scores;")?;
 
+    let ptt_map = get_ptts();
+
     while let Ok(sqlite::State::Row) = statement.next() {
         let score = statement.read::<i64, _>("score")?.try_into()?;
+        let song_id= statement.read::<String, _>("songId")?;
+        let song_difficulty= statement.read::<i64, _>("songDifficulty")?.try_into()?;
+        let song_ptt = * {ptt_map.get(
+           & format!("{}-{}",song_id,song_difficulty)
+        ).unwrap_or(&0)  };
+
         rows.push(Score {
             score,
             max_perfect_count: statement.read::<i64, _>("shinyPerfectCount")?.try_into()?,
             perfect_count: statement.read::<i64, _>("perfectCount")?.try_into()?,
             far_count: statement.read::<i64, _>("nearCount")?.try_into()?,
             lost_count: statement.read::<i64, _>("missCount")?.try_into()?,
-            song_id: statement.read::<String, _>("songId")?,
-            song_difficulty: statement.read::<i64, _>("songDifficulty")?.try_into()?,
             health: statement.read::<i64, _>("health")?.try_into()?,
-            ptt_offset: {
+            ptt:{ song_ptt as f64 }+{
                 if score >= 10_000_000 {
                     20 as f64
                 } else if score >= 9_800_000 {
                     (score - 9800000 + 200000) as f64 / 20000 as f64
                 } else {
-                    (score as i64 - 9500000) as f64 / 30000 as f64
+                    let p = (score as i64 - 9500000) as f64 / 30000 as f64;
+
+                    if p < 0.0 { 0.0 } else { p}
                 }
             },
             info: None,
+            song_id,
+            song_difficulty,
+                song_ptt
         })
     }
 
@@ -62,11 +77,8 @@ pub fn get_score(path: &str) -> anyResult<Vec<Score>> {
 
 #[derive(Debug)]
 pub struct Song {
-    pub song_id: String,
     pub name_en: String,
     pub name_jp: Option<String>,
-    pub rating_class: u8,
-    pub rating: u8,
 }
 
 /// It takes a Vec<Score> as input, update items' [Score::info] value.
@@ -101,17 +113,13 @@ pub fn update_info(mut scores: Vec<Score>) -> anyResult<Vec<Score>> {
                 Some(t)
             }
         };
-        let rating_class = statement.read::<i64, _>("rating_class")?.try_into()?;
-        let rating = statement.read::<i64, _>("rating")?.try_into()?;
+        let rating_class: u8 = statement.read::<i64, _>("rating_class")?.try_into()?;
 
         map.insert(
             format!("{}-{}", song_id.clone(), rating_class),
             Song {
-                song_id,
                 name_en,
                 name_jp,
-                rating_class,
-                rating,
             },
         );
     }
@@ -124,10 +132,38 @@ pub fn update_info(mut scores: Vec<Score>) -> anyResult<Vec<Score>> {
     Ok(scores)
 }
 
+
+    fn print_songs_ptt() -> anyResult<()> {
+        let connection = sqlite::open("arcsong.db")?;
+
+
+        let mut statement = connection.prepare("SELECT * FROM charts;")?;
+
+        while let Ok(sqlite::State::Row) = statement.next()  {
+            
+        let song_id = statement.read::<String, _>("song_id")?;
+        let rating_class : u8= statement.read::<i64, _>("rating_class")?.try_into()?;
+        let rating: u8 = statement.read::<i64, _>("rating")?.try_into()?;
+
+        println!("map.insert( \"{}-{}\", {} );", song_id,rating_class, rating); 
+
+        }
+
+        Ok(())
+    }
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::Result as anyResult;
+    use anyhow::{Result as anyResult, Ok};
+
+    #[test]
+    fn test_print_songs_ptt() -> anyResult<()> {
+        let _ =print_songs_ptt();
+        Ok(())
+    }
+
 
     #[test]
     fn test_get_score() -> anyResult<()> {
@@ -174,17 +210,7 @@ mod tests {
         let mut song_data = update_info(score_data)?;
 
         song_data.sort_by(|a, b| {
-            let mut ptt_a: f64 = -1.0;
-            let mut ptt_b: f64 = -1.0;
-
-            if let Some(v) = &a.info {
-                ptt_a = (v.rating as f64 + a.ptt_offset) * 0.1;
-            }
-
-            if let Some(v) = &b.info {
-                ptt_b = (v.rating as f64 + b.ptt_offset) * 0.1;
-            }
-            ptt_b.partial_cmp(&ptt_a).unwrap()
+            a.ptt.partial_cmp(&b.ptt).unwrap()
         });
 
         for i in 0..30 {
@@ -223,8 +249,8 @@ mod tests {
                         }
                     },
                     song.score,
-                    info.rating as f32 * 0.1,
-                    (info.rating as f64 + song.ptt_offset) * 0.1
+                    song.song_ptt as f32 * 0.1,
+                    song.ptt
                 ),
             }
             println!(
@@ -236,4 +262,9 @@ mod tests {
 
         Ok(())
     }
+
+
+
+
+
 }
