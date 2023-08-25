@@ -1,18 +1,16 @@
 mod score;
-mod ptt;
 
 use std::fs;
 
 use anyhow::Result as anyResult;
 use score::get_score;
-use score::update_info;
 
 fn main() -> anyResult<()> {
     // check file exist
     if !fs::metadata("arcsong.db").is_ok() {
         println!(
             "Song database ( called `arcsong.db` ) do not exist! 
-Some songs' info will not be printed.
+Ptt calculation is disabled.
 You can download it at https://github.com/Arcaea-Infinity/ArcaeaSongDatabase"
         )
     }
@@ -32,16 +30,13 @@ And rename to `score.db`."
         }
     }
 
-    let score_data = get_score(data_path)?;
-    let mut song_data = update_info(score_data)?;
+    let mut score_data = get_score(data_path)?;
 
-    song_data.sort_by(|a, b| {
-            a.ptt.partial_cmp(&b.ptt).unwrap()
-    });
+    score_data.sort_by(|a, b| b.ptt.partial_cmp(&a.ptt).unwrap());
 
     let mut ptt: f64 = 0.0;
     for i in 0..30 {
-        let song = &song_data[i];
+        let song = &score_data[i];
 
         print!("#{}. ", i + 1);
 
@@ -61,8 +56,7 @@ And rename to `score.db`."
                 song.score
             ),
             Some(info) => {
-                ptt += format!("{:.4}",song.ptt)
-                    .parse::<f64>()?;
+                ptt += format!("{:.4}", song.ptt).parse::<f64>()?;
 
                 println!(
                     "{} [{}] \n{:08} {:.2} -> {:.4}",
@@ -80,7 +74,7 @@ And rename to `score.db`."
                         }
                     },
                     song.score,
-                    song.song_ptt as f32 * 0.1,
+                    info.rating as f32 * 0.1,
                     song.ptt
                 )
             }
