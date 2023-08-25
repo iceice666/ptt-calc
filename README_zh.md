@@ -66,13 +66,15 @@ cargo build --release
 
 您将在 `target/release` 文件夹中找到 `ptt-calc` 可执行文件。
 
-请记得将 ``/data/data/moe.low.arc/files/st3` 复制到 `target/release/`` 并将其重命名为 `score.db`。
+请记得将 `/data/data/moe.low.arc/files/st3` 复制到 `target/release/` 并将其重命名为 `score.db`。
 
 
 #### 我该使用哪一个方法?
 
 方法 1 适用于轻松获取最新分数，因为 Arcaea 的分数数据库和此程序都位于同一设备上。
-方法 2 推荐用于在各种平台（Windows、MacOS、Linux）上获得更稳定的编译环境。
+
+方法 2 推荐用于在其他平台（像是Windows、MacOS、Linux）上获得更稳定的编译环境。
+这意味着你的编译不会轻易失败。
 
 ### 3. 运行计算器
 

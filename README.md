@@ -75,7 +75,9 @@ Remember to copy `/data/data/moe.low.arc/files/st3` to `target/release/` and ren
 
 Method 1 is ideal for obtaining your newest score easily since both Arcaea's score database and this program are on the same device.
 
-Method 2 is recommended if you want a more stable compilation environment for various platforms (Windows, MacOS, Linux ... etc.) .
+Method 2 is recommended if you want a more stable compilation environment. 
+Since you can compile it on any platform.
+That means your compilation will not fail easily.
 
 ### 3. Run the Calculator
 
