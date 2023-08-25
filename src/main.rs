@@ -1,5 +1,5 @@
 mod score;
-
+use std::env;
 use std::fs;
 
 use anyhow::{Ok, Result as anyResult};
@@ -36,11 +36,16 @@ And rename to `score.db`."
     Ok(get_score(data_path)?)
 }
 
-fn print_b30(mut score_data: Vec<Score>) -> anyResult<Vec<Score>> {
+fn print_scores(mut score_data: Vec<Score>, range: Option<usize>) -> anyResult<Vec<Score>> {
     score_data.sort_by(|a, b| b.ptt.partial_cmp(&a.ptt).unwrap());
 
     let mut ptt: f64 = 0.0;
-    for i in 0..30 {
+    for i in {
+        match range {
+            None => 0..30,
+            Some(v) => 0..v
+        }
+    } {
         let song = &score_data[i];
 
         print!("#{}. ", i + 1);
@@ -91,14 +96,33 @@ fn print_b30(mut score_data: Vec<Score>) -> anyResult<Vec<Score>> {
         println!();
     }
 
+    if range.is_none() {
     println!("B30 AVG: {:.4}", ptt / 30.0);
+    }
 
     Ok(score_data)
 }
 
 fn main() -> anyResult<()> {
+
+
+
     let score_data = prelude()?;
-    let score_data = print_b30(score_data);
+
+    if let Some(v) = env::args().nth(1) {
+        if v == "list" {
+            let n :usize =  if env::args().nth(2).is_none() { 
+                score_data.len() 
+            } 
+            else {
+                env::args().nth(2).unwrap().parse()?
+            };
+            let _ = print_scores(score_data, Some(n));
+        } else  {
+            let _ = print_scores(score_data, None);
+        }
+    }
+
 
     Ok(())
 }
