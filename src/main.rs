@@ -2,10 +2,10 @@ mod score;
 
 use std::fs;
 
-use anyhow::Result as anyResult;
-use score::get_score;
+use anyhow::{Ok, Result as anyResult};
+use score::{get_score, Score};
 
-fn main() -> anyResult<()> {
+fn prelude() -> anyResult<Vec<Score>> {
     // check file exist
     if !fs::metadata("arcsong.db").is_ok() {
         println!(
@@ -33,8 +33,10 @@ And rename to `score.db`."
         }
     }
 
-    let mut score_data = get_score(data_path)?;
+    Ok(get_score(data_path)?)
+}
 
+fn print_b30(mut score_data: Vec<Score>) -> anyResult<Vec<Score>> {
     score_data.sort_by(|a, b| b.ptt.partial_cmp(&a.ptt).unwrap());
 
     let mut ptt: f64 = 0.0;
@@ -90,6 +92,13 @@ And rename to `score.db`."
     }
 
     println!("B30 AVG: {:.4}", ptt / 30.0);
+
+    Ok(score_data)
+}
+
+fn main() -> anyResult<()> {
+    let score_data = prelude()?;
+    let score_data = print_b30(score_data);
 
     Ok(())
 }
