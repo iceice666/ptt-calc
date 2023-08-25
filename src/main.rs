@@ -10,8 +10,9 @@ fn main() -> anyResult<()> {
     if !fs::metadata("arcsong.db").is_ok() {
         println!(
             "Song database ( called `arcsong.db` ) do not exist! 
-Ptt calculation is disabled.
-You can download it at https://github.com/Arcaea-Infinity/ArcaeaSongDatabase"
+Did you delete this file by accident?
+You can download it back!
+Goto: https://raw.githubusercontent.com/iceice666/ptt-calc/master/arcsong.db"
         )
     }
 
@@ -19,9 +20,11 @@ You can download it at https://github.com/Arcaea-Infinity/ArcaeaSongDatabase"
 
     if fs::metadata("/data/data/moe.low.arc/files/st3").is_ok() {
         data_path = "/data/data/moe.low.arc/files/st3";
-        println!("Using arcaea's data");
+        println!("Using arcaea's data\n");
     } else {
-        if !fs::metadata("score.db").is_ok() {
+        if fs::metadata("score.db").is_ok() {
+            println!("Using local data\n");
+        } else {
             panic!(
                 "Score database ( called `score.db` ) do not exist! 
 You have to copy it at /data/data/moe.low.arc/files/st3 ( and you will need your device rooted).
