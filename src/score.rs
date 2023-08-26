@@ -1,7 +1,8 @@
 use anyhow::Result as anyResult;
 use std::{collections::HashMap, fs};
+
 #[derive(Debug)]
-pub struct Score {
+pub struct ScoreData {
     // Song's id
     pub song_id: String, // String
     // 0 for past, 1 for present, 2 for future, 3 for beyond
@@ -18,25 +19,12 @@ pub struct Score {
     pub lost_count: u16, // 0 ~ 2221
     //calculated ptt
     pub ptt: f64,
-    // song's info
-    pub info: Option<Chart>,
 }
 
-fn check_arcsong() -> anyResult<()> {
-    // check database file exist
-    if fs::metadata("arcsong.db").is_ok() {
-        Ok(())
-    } else {
-        anyhow::bail!(
-            "Song database ( called `arcsong.db` ) do not exist! 
-Did you delete this file by accident?
-You can download it back!
-Goto: https://raw.githubusercontent.com/iceice666/ptt-calc/master/arcsong.db"
-        )
-    }
-}
+pub type Scores = Vec<ScoreData>;
 
-pub fn get_score() -> anyResult<Vec<Score>> {
+/// pass a <&Charts> to calculate ptt
+pub fn get_score(chart_info: &Charts) -> anyResult<Scores> {
     // check database file exist
 
     let mut data_path = "score.db";
@@ -56,9 +44,7 @@ And rename to `score.db`."
 
     let connection = sqlite::open(data_path)?;
 
-    let mut chart_info = get_charts()?;
-
-    let mut rows: Vec<Score> = vec![];
+    let mut rows: Scores = vec![];
 
     let mut statement = connection.prepare("SELECT * FROM scores;")?;
 
@@ -70,11 +56,12 @@ And rename to `score.db`."
         let perfect_count = statement.read::<i64, _>("perfectCount")?.try_into()?;
         let far_count = statement.read::<i64, _>("nearCount")?.try_into()?;
         let lost_count = statement.read::<i64, _>("missCount")?.try_into()?;
-        let info = chart_info.remove(&format!("{}-{}", song_id.clone(), song_difficulty));
+
+        let info = chart_info.get(&format!("{}-{}", song_id.clone(), song_difficulty));
 
         let ptt = {
             let p = ({
-                match info.as_ref() {
+                match info {
                     None => 0.0 as f64,
                     Some(v) => v.rating as f64,
                 }
@@ -95,9 +82,8 @@ And rename to `score.db`."
             }
         };
 
-        rows.push(Score {
+        rows.push(ScoreData {
             ptt,
-            info,
             score,
             song_id,
             song_difficulty,
@@ -118,11 +104,28 @@ pub struct Chart {
     pub rating: u8,
 }
 
+/// provide a way to check `argsong.db` existt
+fn check_arcsong() -> anyResult<()> {
+    // check database file exist
+    if fs::metadata("arcsong.db").is_ok() {
+        Ok(())
+    } else {
+        anyhow::bail!(
+            "Song database ( called `arcsong.db` ) do not exist! 
+Did you delete this file by accident?
+You can download it back!
+Goto: https://raw.githubusercontent.com/iceice666/ptt-calc/master/arcsong.db"
+        )
+    }
+}
+pub type Charts = HashMap<String, Chart>;
+
+/// get all charts' info in `arcsong.db`
 pub fn get_charts() -> anyResult<HashMap<String, Chart>> {
     let connection = sqlite::open("arcsong.db")?;
 
     // create a map to save song info
-    let mut map: HashMap<String, Chart> = HashMap::new();
+    let mut map: Charts = HashMap::new();
 
     // prepare to iter through database
     let mut statement = connection.prepare("SELECT * FROM charts;")?;
@@ -184,7 +187,7 @@ mod tests {
 
     #[test]
     fn print_score() -> anyResult<()> {
-        let result = get_score()?;
+        let result = get_score(&get_charts()?)?;
         println!(
             "        song         |  score   |   perfect   | far  | lost | health | difficulty "
         );
