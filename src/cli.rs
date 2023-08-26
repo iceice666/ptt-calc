@@ -1,9 +1,13 @@
 use std::collections::VecDeque;
 
-use crate::score::{get_score, Score};
+use crate::score::{get_charts, get_score, Charts, Scores};
 use anyhow::{Ok, Result as anyResult};
 
-fn print_scores(mut score_data: Vec<Score>, range: Option<usize>) -> anyResult<Vec<Score>> {
+fn print_scores(
+    mut score_data: Scores,
+    range: Option<usize>,
+    chart_info: &Charts,
+) -> anyResult<Scores> {
     score_data.sort_by(|a, b| b.ptt.partial_cmp(&a.ptt).unwrap());
 
     let mut ptt: f64 = 0.0;
@@ -17,7 +21,9 @@ fn print_scores(mut score_data: Vec<Score>, range: Option<usize>) -> anyResult<V
 
         print!("#{}. ", i + 1);
 
-        match &song.info {
+        let key = format!("{}-{}", song.song_id, song.song_difficulty);
+
+        match chart_info.get(&key) {
             None => println!(
                 "{} {} {}",
                 song.song_id,
@@ -72,7 +78,8 @@ fn print_scores(mut score_data: Vec<Score>, range: Option<usize>) -> anyResult<V
 
 // CLI
 pub fn main(mut args: VecDeque<String>) -> anyResult<()> {
-    let score_data = get_score()?;
+    let chart_data = get_charts()?;
+    let score_data = get_score(&chart_data)?;
 
     if let Some(v) = args.pop_front() {
         if v == "list" {
@@ -81,9 +88,9 @@ pub fn main(mut args: VecDeque<String>) -> anyResult<()> {
                 Some(n) => n.parse::<usize>()?,
             };
 
-            let _ = print_scores(score_data, Some(range));
+            let _ = print_scores(score_data, Some(range), &chart_data );
         } else {
-            let _ = print_scores(score_data, None);
+            let _ = print_scores(score_data, None, &chart_data);
         }
     }
 
