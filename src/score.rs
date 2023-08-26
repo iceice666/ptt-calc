@@ -1,5 +1,5 @@
 use anyhow::Result as anyResult;
-
+use std::{collections::HashMap, fs};
 #[derive(Debug)]
 pub struct Score {
     // Song's id
@@ -16,16 +16,45 @@ pub struct Score {
     pub far_count: u16, // 0 ~ 2221
     // Lost count (Original called `missCount`)
     pub lost_count: u16, // 0 ~ 2221
-    // remains health on clear
-    pub health: i8, // ~ 100, negative value unknown right now
     //calculated ptt
     pub ptt: f64,
     // song's info
     pub info: Option<Chart>,
 }
 
-pub fn get_score(path: &str) -> anyResult<Vec<Score>> {
-    let connection = sqlite::open(path)?;
+fn check_arcsong() -> anyResult<()> {
+    // check database file exist
+    if fs::metadata("arcsong.db").is_ok() {
+        Ok(())
+    } else {
+        anyhow::bail!(
+            "Song database ( called `arcsong.db` ) do not exist! 
+Did you delete this file by accident?
+You can download it back!
+Goto: https://raw.githubusercontent.com/iceice666/ptt-calc/master/arcsong.db"
+        )
+    }
+}
+
+pub fn get_score() -> anyResult<Vec<Score>> {
+    // check database file exist
+
+    let mut data_path = "score.db";
+
+    if fs::metadata("/data/data/moe.low.arc/files/st3").is_ok() {
+        data_path = "/data/data/moe.low.arc/files/st3";
+        // println!("Using arcaea's data\n");
+    } else if fs::metadata("score.db").is_ok() {
+        // println!("Using local data\n");
+    } else {
+        anyhow::bail!(
+            "Score database ( called `score.db` ) do not exist! 
+You have to copy it at /data/data/moe.low.arc/files/st3 ( and you will need your device rooted).
+And rename to `score.db`."
+        )
+    }
+
+    let connection = sqlite::open(data_path)?;
 
     let mut chart_info = get_charts()?;
 
@@ -41,8 +70,6 @@ pub fn get_score(path: &str) -> anyResult<Vec<Score>> {
         let perfect_count = statement.read::<i64, _>("perfectCount")?.try_into()?;
         let far_count = statement.read::<i64, _>("nearCount")?.try_into()?;
         let lost_count = statement.read::<i64, _>("missCount")?.try_into()?;
-        let health = statement.read::<i64, _>("health")?.try_into()?;
-
         let info = chart_info.remove(&format!("{}-{}", song_id.clone(), song_difficulty));
 
         let ptt = {
@@ -78,14 +105,11 @@ pub fn get_score(path: &str) -> anyResult<Vec<Score>> {
             perfect_count,
             far_count,
             lost_count,
-            health,
         })
     }
 
     Ok(rows)
 }
-
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Chart {
@@ -160,7 +184,7 @@ mod tests {
 
     #[test]
     fn print_score() -> anyResult<()> {
-        let result = get_score("score.db")?;
+        let result = get_score()?;
         println!(
             "        song         |  score   |   perfect   | far  | lost | health | difficulty "
         );
@@ -170,7 +194,7 @@ mod tests {
 
         for score in result.iter() {
             println!(
-                "{:20} | {:8} | {:11} | {:4} | {:4} | {:6} | {:3}",
+                "{:20} | {:8} | {:11} | {:4} | {:4} |  {:3}",
                 score.song_id.clone(),
                 score.score,
                 {
@@ -181,7 +205,6 @@ mod tests {
                 },
                 score.far_count,
                 score.lost_count,
-                score.health,
                 {
                     match score.song_difficulty {
                         0 => "PST",

@@ -8,4 +8,6 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+dioxus = "0.4.0"
+dioxus-tui = "0.4.0"
 sqlite = "0.31.1"
