@@ -6,7 +6,7 @@ use anyhow::{Ok, Result as anyResult};
 fn print_scores(
     mut score_data: Scores,
     range: Option<usize>,
-    chart_info: &Charts,
+    chart_data: &Charts,
 ) -> anyResult<Scores> {
     score_data.sort_by(|a, b| b.ptt.partial_cmp(&a.ptt).unwrap());
 
@@ -23,7 +23,7 @@ fn print_scores(
 
         let key = format!("{}-{}", song.song_id, song.song_difficulty);
 
-        match chart_info.get(&key) {
+        match chart_data.get(&key) {
             None => println!(
                 "{} {} {}",
                 song.song_id,
@@ -88,7 +88,7 @@ pub fn main(mut args: VecDeque<String>) -> anyResult<()> {
                 Some(n) => n.parse::<usize>()?,
             };
 
-            let _ = print_scores(score_data, Some(range), &chart_data );
+            let _ = print_scores(score_data, Some(range), &chart_data);
         } else {
             let _ = print_scores(score_data, None, &chart_data);
         }

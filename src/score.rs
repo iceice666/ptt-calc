@@ -1,7 +1,8 @@
 use anyhow::Result as anyResult;
 use std::{collections::HashMap, fs};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ScoreData {
     // Song's id
     pub song_id: String, // String
@@ -21,7 +22,15 @@ pub struct ScoreData {
     pub ptt: f64,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ChartData {
+    pub name_en: String,
+    pub name_jp: Option<String>,
+    pub rating: u8,
+}
+
 pub type Scores = Vec<ScoreData>;
+pub type Charts = HashMap<String, ChartData>;
 
 /// pass a <&Charts> to calculate ptt
 pub fn get_score(chart_info: &Charts) -> anyResult<Scores> {
@@ -97,13 +106,6 @@ And rename to `score.db`."
     Ok(rows)
 }
 
-#[derive(Debug)]
-pub struct Chart {
-    pub name_en: String,
-    pub name_jp: Option<String>,
-    pub rating: u8,
-}
-
 /// provide a way to check `argsong.db` existt
 fn check_arcsong() -> anyResult<()> {
     // check database file exist
@@ -118,10 +120,9 @@ Goto: https://raw.githubusercontent.com/iceice666/ptt-calc/master/arcsong.db"
         )
     }
 }
-pub type Charts = HashMap<String, Chart>;
 
 /// get all charts' info in `arcsong.db`
-pub fn get_charts() -> anyResult<HashMap<String, Chart>> {
+pub fn get_charts() -> anyResult<HashMap<String, ChartData>> {
     let connection = sqlite::open("arcsong.db")?;
 
     // create a map to save song info
@@ -148,7 +149,7 @@ pub fn get_charts() -> anyResult<HashMap<String, Chart>> {
 
         map.insert(
             format!("{}-{}", song_id.clone(), rating_class),
-            Chart {
+            ChartData {
                 name_en,
                 name_jp,
                 rating,
