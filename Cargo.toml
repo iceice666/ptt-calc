@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "arcaea_data",
+  "tui",
+  "cli",
+  "web"
+]
