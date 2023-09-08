@@ -1,3 +1,101 @@
-fn main() {
-    println!("Hello, world!");
+use anyhow::{Ok, Result as anyResult};
+use arcaea_data::{get_charts, get_score, Charts, ScoreSort, Scores};
+
+fn print_scores(
+    mut score_data: Scores,
+    range: Option<usize>,
+    chart_data: &Charts,
+) -> anyResult<Scores> {
+    score_data.sort_by_ptt();
+
+    let mut ptt: f64 = 0.0;
+    for i in {
+        match range {
+            None => 0..30,
+            Some(v) => 0..v,
+        }
+    } {
+        let song = match score_data.get(i) {
+            None => break,
+            Some(v) => v,
+        };
+
+        print!("#{}. ", i + 1);
+
+        let key = format!("{}-{}", song.song_id, song.song_difficulty);
+
+        match chart_data.get(&key) {
+            None => println!(
+                "{} {} {}",
+                song.song_id,
+                {
+                    match song.song_difficulty {
+                        0 => "PST",
+                        1 => "PRS",
+                        2 => "FTR",
+                        3 => "BYD",
+                        _ => "???",
+                    }
+                },
+                song.score
+            ),
+            Some(info) => {
+                ptt += format!("{:.4}", song.ptt).parse::<f64>()?;
+
+                println!(
+                    "{} [{}] \n{:08} {:.2} -> {:.4}",
+                    match &info.name_jp {
+                        None => &info.name_en,
+                        Some(v) => &v,
+                    },
+                    {
+                        match song.song_difficulty {
+                            0 => "PST",
+                            1 => "PRS",
+                            2 => "FTR",
+                            3 => "BYD",
+                            _ => "???",
+                        }
+                    },
+                    song.score,
+                    info.rating as f32 * 0.1,
+                    song.ptt
+                )
+            }
+        }
+        println!(
+            "Perfect: {:4} (+{:4}) Far: {:4} Lost: {:4}",
+            song.perfect_count, song.max_perfect_count, song.far_count, song.lost_count,
+        );
+        println!();
+    }
+
+    if range.is_none() {
+        println!("B30 AVG: {:.4}", ptt / 30.0);
+    }
+
+    Ok(score_data)
+}
+
+// CLI
+fn main() -> anyResult<()> {
+    let chart_data = get_charts()?;
+    let score_data = get_score(&chart_data)?;
+
+    let args: Vec<String> = std::env::args().collect();
+
+    if let Some(v) = args.get(1) {
+        if v == "list" {
+            let range = match args.get(2) {
+                None => score_data.len(),
+                Some(n) => n.parse::<usize>()?,
+            };
+
+            let _ = print_scores(score_data, Some(range), &chart_data);
+        } else {
+            let _ = print_scores(score_data, None, &chart_data);
+        }
+    }
+
+    Ok(())
 }
