@@ -169,6 +169,63 @@ pub fn get_charts() -> anyResult<HashMap<String, ChartData>> {
     Ok(map)
 }
 
+pub fn prettier_string(
+    song: &ScoreData,
+    chart_data: &Charts,
+) -> (String, f64) {
+    let key = format!("{}-{}", song.song_id, song.song_difficulty);
+
+    match chart_data.get(&key) {
+        None => (
+            format!(
+                "{} {} {}\r\nPerfect: {:4} (+{:4}) Far: {:4} Lost: {:4}\r\n",
+                song.song_id,
+                {
+                    match song.song_difficulty {
+                        0 => "PST",
+                        1 => "PRS",
+                        2 => "FTR",
+                        3 => "BYD",
+                        _ => "???",
+                    }
+                },
+                song.score,
+                song.perfect_count,
+                song.max_perfect_count,
+                song.far_count,
+                song.lost_count,
+            ),
+            0.0f64,
+        ),
+        Some(info) => (
+            format!(
+                "{} [{}] \n{:08} {:.1} -> {:.4}\r\nPerfect: {:4} (+{:4}) Far: {:4} Lost: {:4}\r\n",
+                match &info.name_jp {
+                    None => &info.name_en,
+                    Some(v) => &v,
+                },
+                {
+                    match song.song_difficulty {
+                        0 => "PST",
+                        1 => "PRS",
+                        2 => "FTR",
+                        3 => "BYD",
+                        _ => "???",
+                    }
+                },
+                song.score,
+                info.rating as f32 * 0.1,
+                song.ptt,
+                song.perfect_count,
+                song.max_perfect_count,
+                song.far_count,
+                song.lost_count,
+            ),
+            song.ptt,
+        ),
+    }
+}
+
 fn _print_songs_ptt() -> anyResult<()> {
     let connection = sqlite::open("arcsong.db")?;
 
