@@ -1,3 +1,5 @@
+mod chart;
+
 use anyhow::Result as anyResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -120,58 +122,9 @@ And rename to `score.db`."
     Ok(rows)
 }
 
-/// provide a way to check `argsong.db` exist
-fn check_arcsong() -> anyResult<()> {
-    // check database file exist
-    if fs::metadata("arcsong.db").is_ok() {
-        Ok(())
-    } else {
-        anyhow::bail!(
-            "Song database ( called `arcsong.db` ) do not exist! 
-Did you delete this file by accident?
-You can download it back!
-Goto: https://raw.githubusercontent.com/iceice666/ptt-calc/master/arcsong.db"
-        )
-    }
-}
-
 /// get all charts' info in `arcsong.db`
 pub fn get_charts() -> anyResult<HashMap<String, ChartData>> {
-    check_arcsong()?;
-    let connection = sqlite::open("arcsong.db")?;
-
-    // create a map to save song info
-    let mut map: Charts = HashMap::new();
-
-    // prepare to iter through database
-    let mut statement = connection.prepare("SELECT * FROM charts;")?;
-
-    // iteration
-    while let Ok(sqlite::State::Row) = statement.next() {
-        let rating = statement.read::<f64, _>("rating")? / 10.0;
-        let name_en = statement.read::<String, _>("name_en")?;
-        let name_jp = {
-            let t = statement.read::<String, _>("name_jp")?;
-            if t == "" {
-                None
-            } else {
-                Some(t)
-            }
-        };
-
-        let song_id = statement.read::<String, _>("song_id")?;
-        let rating_class: u8 = statement.read::<i64, _>("rating_class")?.try_into()?;
-
-        map.insert(
-            format!("{}-{}", song_id.clone(), rating_class),
-            ChartData {
-                name_en,
-                name_jp,
-                rating,
-            },
-        );
-    }
-    Ok(map)
+    crate::chart::get_charts()
 }
 
 pub fn prettier_string(song: &ScoreData) -> (String, f64) {
@@ -228,30 +181,97 @@ pub fn prettier_string(song: &ScoreData) -> (String, f64) {
     }
 }
 
-fn _print_songs_ptt() -> anyResult<()> {
-    let connection = sqlite::open("arcsong.db")?;
-
-    let mut statement = connection.prepare("SELECT * FROM charts;")?;
-
-    while let Ok(sqlite::State::Row) = statement.next() {
-        let song_id = statement.read::<String, _>("song_id")?;
-        let rating_class: u8 = statement.read::<i64, _>("rating_class")?.try_into()?;
-        let rating: u8 = statement.read::<i64, _>("rating")?.try_into()?;
-
-        println!("\"{}-{}\" : {} ", song_id, rating_class, rating);
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::{Ok, Result as anyResult};
+    use anyhow::Result as anyResult;
+
+    #[test]
+    fn update_chart_data() -> anyResult<()> {
+        use std::fs::File;
+        use std::io::Write;
+        let file_path = "src/chart.rs";
+        let mut file = File::create(&file_path)?;
+
+        let connection = sqlite::open("arcsong.db")?;
+
+        // prepare to iter through database
+        let mut statement = connection.prepare("SELECT * FROM charts;")?;
+
+        let mut content = "
+use std::collections::HashMap;
+use crate::ChartData;
+use anyhow::Result as anyResult;
+pub fn get_charts() -> anyResult<HashMap<String,ChartData>> {
+let mut map = HashMap::new();
+"
+        .to_string();
+
+        // iteration
+        while let Ok(sqlite::State::Row) = statement.next() {
+            let rating = statement.read::<f64, _>("rating")? / 10.0;
+            let name_en = statement.read::<String, _>("name_en")?;
+            let name_jp = {
+                let t = statement.read::<String, _>("name_jp")?;
+                if t == "" {
+                    None
+                } else {
+                    Some(t)
+                }
+            };
+
+            let song_id = statement.read::<String, _>("song_id")?;
+            let rating_class: u8 = statement.read::<i64, _>("rating_class")?.try_into()?;
+
+            let key = format!("{}-{}", song_id.clone(), rating_class);
+            let val = ChartData {
+                name_en,
+                name_jp,
+                rating,
+            };
+    
+            content += &format!(
+                r#"
+            map.insert(
+            "{}".to_string(),
+            ChartData {{ 
+                name_en: "{}".to_string(),
+                name_jp: {},
+                rating: {:.1}
+            }}
+            );"#,
+                key,
+                val.name_en,
+                match val.name_jp {
+                    None => "None".to_string(),
+                    Some(v) => format!("Some(\"{}\".to_string())", v),
+                },
+                val.rating
+            )
+        }
+
+        content += "Ok(map)
+}";
+        file.write_all(content.as_bytes())?;
+        // Explicitly close the file
+        file.flush()?;
+        Ok(())
+    }
 
     #[test]
     fn print_songs_ptt() -> anyResult<()> {
-        let _ = _print_songs_ptt();
+        let connection = sqlite::open("arcsong.db")?;
+
+        let mut statement = connection.prepare("SELECT * FROM charts;")?;
+
+        while let Ok(sqlite::State::Row) = statement.next() {
+            let song_id = statement.read::<String, _>("song_id")?;
+            let rating_class: u8 = statement.read::<i64, _>("rating_class")?.try_into()?;
+            let rating: u8 = statement.read::<i64, _>("rating")?.try_into()?;
+
+            println!("\"{}-{}\" : {} ", song_id, rating_class, rating);
+        }
+
         Ok(())
     }
 
