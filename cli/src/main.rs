@@ -1,10 +1,10 @@
 use anyhow::{Ok, Result as anyResult};
-use arcaea_data::{get_charts, get_score, prettier_string, Charts, ScoreSort, Scores};
+use arcaea_data::{get_charts, get_score, prettier_string, ScoreSort, Scores};
 
 fn print_scores(
     score_data: &mut Scores,
     range: Option<usize>,
-    chart_data: &Charts,
+    curr_ptt: Option<f64>,
 ) -> anyResult<()> {
     score_data.sort_by_ptt();
 
@@ -22,14 +22,23 @@ fn print_scores(
 
         print!("#{}. ", i + 1);
 
-        let (body, sptt) = prettier_string(song, chart_data);
+        let (body, sptt) = prettier_string(song);
         ptt += sptt;
 
         println!("{}", body);
     }
 
     if range.is_none() {
-        println!("B30 AVG: {:.4}", ptt / 30.0);
+        if let Some(curr_ptt) = curr_ptt {
+            println!(
+                "Current PTT: {:.2}\nB30 AVG: {:.4}\nCalculated R10: {:.4}",
+                curr_ptt,
+                ptt / 30.0,
+                curr_ptt * 4.0 - ptt / 10.0
+            )
+        } else {
+            println!("B30 AVG: {:.4} ", ptt / 30.0);
+        }
     }
 
     Ok(())
@@ -37,8 +46,7 @@ fn print_scores(
 
 // CLI
 fn main() -> anyResult<()> {
-    let chart_data = get_charts()?;
-    let mut score_data = get_score(&chart_data)?;
+    let mut score_data = get_score(get_charts()?)?;
 
     let args: Vec<String> = std::env::args().collect();
 
@@ -50,13 +58,20 @@ fn main() -> anyResult<()> {
                     Some(n) => n.parse::<usize>()?,
                 };
 
-                print_scores(&mut score_data, Some(range), &chart_data)?;
+                print_scores(&mut score_data, Some(range), None)?;
+            }
+            "b30" => {
+                print_scores(
+                    &mut score_data,
+                    None,
+                    match args.get(2) {
+                        None => None,
+                        Some(v) => Some(v.parse::<f64>()?),
+                    },
+                )?;
             }
             _ => {}
         }
-    } else {
-        print_scores(&mut score_data, None, &chart_data)?;
     }
-
     Ok(())
 }

@@ -1,6 +1,7 @@
 use anyhow::Result as anyResult;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs};
+use std::collections::HashMap;
+use std::fs;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ScoreData {
@@ -20,13 +21,15 @@ pub struct ScoreData {
     pub lost_count: u16, // 0 ~ 2221
     //calculated ptt
     pub ptt: f64,
+    // chart info
+    pub chart_info: Option<ChartData>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ChartData {
     pub name_en: String,
     pub name_jp: Option<String>,
-    pub rating: u8,
+    pub rating: f64,
 }
 
 pub type Scores = Vec<ScoreData>;
@@ -43,7 +46,7 @@ impl ScoreSort for Scores {
 }
 
 /// pass a <&Charts> to calculate ptt
-pub fn get_score(chart_info: &Charts) -> anyResult<Scores> {
+pub fn get_score(mut chart_info: Charts) -> anyResult<Scores> {
     // check database file exist
 
     let mut data_path = "score.db";
@@ -76,23 +79,23 @@ And rename to `score.db`."
         let far_count = statement.read::<i64, _>("nearCount")?.try_into()?;
         let lost_count = statement.read::<i64, _>("missCount")?.try_into()?;
 
-        let info = chart_info.get(&format!("{}-{}", song_id.clone(), song_difficulty));
+        let info = chart_info.remove(&format!("{}-{}", song_id.clone(), song_difficulty));
 
         let ptt = {
             let p = ({
                 match info {
                     None => 0.0 as f64,
-                    Some(v) => v.rating as f64,
+                    Some(ref v) => v.rating,
                 }
             } + {
                 if score >= 10_000_000 {
-                    20 as f64
+                    2 as f64
                 } else if score >= 9_800_000 {
-                    (score - 9800000 + 200000) as f64 / 20000 as f64
+                    (score - 9800000 + 200000) as f64 / 200000 as f64
                 } else {
-                    (score as i64 - 9500000) as f64 / 30000 as f64
+                    (score as i64 - 9500000) as f64 / 300000 as f64
                 }
-            }) * 0.1;
+            });
 
             if p < 0.0 {
                 0.0
@@ -110,13 +113,14 @@ And rename to `score.db`."
             perfect_count,
             far_count,
             lost_count,
+            chart_info: info,
         })
     }
 
     Ok(rows)
 }
 
-/// provide a way to check `argsong.db` existt
+/// provide a way to check `argsong.db` exist
 fn check_arcsong() -> anyResult<()> {
     // check database file exist
     if fs::metadata("arcsong.db").is_ok() {
@@ -133,6 +137,7 @@ Goto: https://raw.githubusercontent.com/iceice666/ptt-calc/master/arcsong.db"
 
 /// get all charts' info in `arcsong.db`
 pub fn get_charts() -> anyResult<HashMap<String, ChartData>> {
+    check_arcsong()?;
     let connection = sqlite::open("arcsong.db")?;
 
     // create a map to save song info
@@ -143,7 +148,7 @@ pub fn get_charts() -> anyResult<HashMap<String, ChartData>> {
 
     // iteration
     while let Ok(sqlite::State::Row) = statement.next() {
-        let rating = statement.read::<i64, _>("rating")?.try_into()?;
+        let rating = statement.read::<f64, _>("rating")? / 10.0;
         let name_en = statement.read::<String, _>("name_en")?;
         let name_jp = {
             let t = statement.read::<String, _>("name_jp")?;
@@ -169,13 +174,10 @@ pub fn get_charts() -> anyResult<HashMap<String, ChartData>> {
     Ok(map)
 }
 
-pub fn prettier_string(
-    song: &ScoreData,
-    chart_data: &Charts,
-) -> (String, f64) {
-    let key = format!("{}-{}", song.song_id, song.song_difficulty);
+pub fn prettier_string(song: &ScoreData) -> (String, f64) {
+    let chart_data = &song.chart_info;
 
-    match chart_data.get(&key) {
+    match chart_data {
         None => (
             format!(
                 "{} {} {}\r\nPerfect: {:4} (+{:4}) Far: {:4} Lost: {:4}\r\n",
@@ -214,7 +216,7 @@ pub fn prettier_string(
                     }
                 },
                 song.score,
-                info.rating as f32 * 0.1,
+                info.rating,
                 song.ptt,
                 song.perfect_count,
                 song.max_perfect_count,
@@ -255,7 +257,7 @@ mod tests {
 
     #[test]
     fn print_score() -> anyResult<()> {
-        let result = get_score(&get_charts()?)?;
+        let result = get_score(get_charts()?)?;
         println!(
             "        song         |  score   |   perfect   | far  | lost | health | difficulty "
         );
