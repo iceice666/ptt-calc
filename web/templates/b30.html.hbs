@@ -1,0 +1,54 @@
+<!doctype html>
+<div class="center" 
+  style="width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0; ">
+
+  <div class="header">
+  <span> header </span>
+  </div>
+
+  <div class="b30-container"> 
+    {{ #each scores }}
+    <div class="b30-score">
+
+      <div style="display: flex;">
+        <span id="song_name">{{song_name}}</span>
+
+        <span id="song_difficulty" style="margin-left: auto;" class="{{song_difficulty}}-label">
+              {{song_difficulty}}
+        </span>
+      </div>
+
+      <br/>
+
+      <span>{{score}} </span>
+
+      <span>{{ rating }} => {{ptt}}</span>
+
+      <br/>
+      <span>
+        Perfect: {{perfect_count}} (+{{max_perfect_count}}) Far: {{far_count}} Lost: {{lost_count}}
+      </span>
+
+    </div>
+    {{ /each }}
+  </div>
+
+</div>
+
+<link rel="stylesheet" href="./assets/b30.css">
+
+
+<script>
+  if (false) {
+    // 获取所有页面元素
+    const allElements = document.querySelectorAll('*');
+
+    // 遍历所有元素并添加边框
+    allElements.forEach((element) => {
+      element.style.border = '1px solid red'; // 设置边框样式
+    });
+  }
+</script>
