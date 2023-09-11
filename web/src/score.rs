@@ -48,10 +48,16 @@ fn format_number(number: u32) -> String {
     formatted_number
 }
 
-fn format_data() -> Vec<ScoreDataForDisplay> {
+fn format_data(num: isize) -> Vec<ScoreDataForDisplay> {
     let mut score_data = get_score(get_charts().unwrap()).unwrap();
     score_data.sort_by_ptt();
-    let best30: Vec<ScoreDataForDisplay> = score_data[0..30]
+    let best30: Vec<ScoreDataForDisplay> = score_data[0..{
+        if num < 0 {
+            score_data.len()
+        } else {
+            num as usize
+        }
+    }]
         .iter()
         .map(|song| ScoreDataForDisplay {
             song_name: {
@@ -88,7 +94,56 @@ fn format_data() -> Vec<ScoreDataForDisplay> {
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 #[get("/b30")]
-pub fn main() -> content::RawHtml<String> {
+
+pub fn b30() -> content::RawHtml<String> {
+    let (score_html, ptt_total) = gen_score_html(30);
+    let calculator_html = format!(
+        r#"
+    <div id="r10-calc">
+        <div style="display: flex;">
+        <label>Current PTT: </label>
+        <input 
+            id="curr_ptt_input" 
+            type="number" 
+            step="0.01"
+            min="0"
+            max="13.09"
+
+            style="margin-left: auto; width: 30%;"
+            />
+        </div>
+        <div style="display: flex;">
+            <label>B30 Avg:</label>
+            <label style="margin-left: auto;">{:.4}</label>
+        </div>
+        <div style="display: flex;">
+            <label>Calculated R10: </label>
+            <label id="r10_text" style="margin-left: auto;"></label>
+        </div>
+
+        <script>
+            const inputElement = document.getElementById("curr_ptt_input");
+            const outputElement = document.getElementById("r10_text");
+
+            // when lost focus
+            inputElement.addEventListener("blur", function () {{
+                outputElement.textContent = Math.round((40*inputElement.value-{})*1000)/10000;
+            }});
+
+            // when press enter
+            inputElement.addEventListener('keydown', function (event) {{
+                if (event.key === 'Enter') {{
+                    outputElement.textContent = Math.round((40*inputElement.value-{})*1000)/10000;
+                }}
+            }});
+        </script>
+    </div>
+    "#,
+        ptt_total / 30.0,
+        ptt_total,
+        ptt_total,
+    );
+
     content::RawHtml(format!(
         r#"
     <!doctype html>
@@ -96,15 +151,72 @@ pub fn main() -> content::RawHtml<String> {
     {}
     </head>
     <body>
-    {}
+        <div class="score-container">
+            {}
+            <div></div>
+            {}
+            {}
+        </div>
     </body>
     "#,
         get_header(),
-        get_b30_html()
+        get_logo(),
+        calculator_html,
+        score_html
+    ))
+}
+
+#[get("/list")]
+pub fn list() -> content::RawHtml<String> {
+    content::RawHtml(format!(
+        r#"
+    <!doctype html>
+    <head>
+    {}
+    </head>
+    <body>
+        <div class="score-container">
+            {}
+            <div></div>
+            <div></div>
+            {}
+        </div>
+    </body>
+    "#,
+        get_header(),
+        get_logo(),
+        gen_score_html(-1).0
     ))
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
+
+fn get_logo() -> String {
+    r#"
+    <div style="
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+    ">
+        <span>
+            <a href="https://github.com/iceice666/ptt-calc">iceice666/ptt-calc</a>
+        </span>
+        <span>
+            A local Arcaea PTT calculator
+        </span>
+        <span>
+            Other links:
+        </span>
+        <span>
+
+            <a href="./b30">B30</a>
+            <a href="./list">All scores</a>
+        </span>
+    </div>
+    "#
+    .to_string()
+}
+
 fn get_header() -> String {
     r#"
 <style>
@@ -112,27 +224,38 @@ fn get_header() -> String {
 body {
   background-color: #1e1e2e;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  flex-direction: column;
 }
 
-.b30-container {
+.score-container {
   display: grid;
   grid-template-columns: repeat(3, 1fr); 
   grid-template-rows: repeat(10, 1fr);    
   gap: 10px; 
 }
 
-.b30-score {
-  color: #cdd6f4;
+span,label {color: #cdd6f4;}
+
+#r10-calc {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+}
+
+a {
+    color: #b4befe;
+}
+
+.score {
   display: flex;
   flex-direction: column;
   padding: 10px; 
 }
 
 #song_name {
-  color: #b1b2b3;
+  color: #bac2de;
 }
 
 #song_difficulty.PRS-label {color: #74c7ec;}
@@ -142,20 +265,25 @@ body {
 
 </style>
 
+<title>iceice666/ptt-calc</title>
 "#
     .to_string()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
-fn get_b30_html() -> String {
-    format!(r#"<div class="b30-container">{}</div>"#, {
+/// It return score html and ptt
+fn gen_score_html(num: isize) -> (String, f64) {
+    let mut ptt = 0.0;
+    let html = {
         let mut score_html = "".to_string();
-        let best30 = format_data();
+        let best30 = format_data(num);
 
-        for score in best30.iter() {
+        for (i, score) in best30.iter().enumerate() {
+            ptt += score.ptt.parse::<f64>().unwrap_or(0.0);
             score_html += &format!(
                 r#"
-<div class="b30-score">
+<div class="score">
+        <span>#{}</span>
     <div style="display: flex;">
         <span id="song_name">{}</span>
         <span id="song_difficulty" style="margin-left: auto;" class="{}-label">
@@ -177,6 +305,7 @@ fn get_b30_html() -> String {
 </div>
 
 "#,
+                i + 1,
                 score.song_name,
                 score.song_difficulty,
                 score.song_difficulty,
@@ -189,6 +318,9 @@ fn get_b30_html() -> String {
                 score.lost_count
             )
         }
+
         score_html
-    },)
+    };
+
+    (html, ptt)
 }

@@ -229,7 +229,7 @@ let mut map = HashMap::new();
                 name_jp,
                 rating,
             };
-    
+
             content += &format!(
                 r#"
             map.insert(

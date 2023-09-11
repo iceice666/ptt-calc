@@ -1,4 +1,4 @@
-mod b30;
+mod score;
 
 #[macro_use]
 extern crate rocket;
@@ -12,5 +12,5 @@ fn root() -> &'static str {
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .mount("/", routes![root, crate::b30::main])
+        .mount("/", routes![root, crate::score::b30,crate::score::list ])
 }
